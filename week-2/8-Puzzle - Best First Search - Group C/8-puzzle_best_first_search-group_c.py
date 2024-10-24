@@ -1,11 +1,12 @@
 import heapq
 import copy
-import pygame
 import time
 import threading
-import sys
 from puzzle_board.puzzle import board, swapTiles, get_board, init_puzzle, get_random_puzzle
+from plotly_visualize_tree.plotly_visualize_tree import plot_tree_with_edges_and_labels
+
 goal_state = [[1, 2, 3], [4, 5, 6], [7, 8, 0]]
+
 
 def getInvCount(arr):
     inv_count = 0
@@ -16,6 +17,7 @@ def getInvCount(arr):
                 inv_count += 1
     return inv_count
 
+
 def manhattan(puzzle):
     distance = 0
     for i in range(3):
@@ -25,6 +27,7 @@ def manhattan(puzzle):
                 correct_y = (puzzle[i][j] - 1) % 3
                 distance += abs(i - correct_x) + abs(j - correct_y)
     return distance
+
 
 def get_neighbors(puzzle):
     neighbors = []
@@ -39,16 +42,19 @@ def get_neighbors(puzzle):
             neighbors.append(new_puzzle)
     return neighbors
 
+
 def best_first_search(start_puzzle):
     priority_queue = []
     visited = set()
-    heapq.heappush(priority_queue, (manhattan(start_puzzle), 0, start_puzzle, [], []))
+    heapq.heappush(priority_queue, (manhattan(start_puzzle), 0, start_puzzle, [], [], [], 0))
+    labels = [manhattan(start_puzzle)]
+    tree = []
 
     while priority_queue:
-        _, cost, current_puzzle, path, complete_puzzle_path = heapq.heappop(priority_queue)
+        _, cost, current_puzzle, path, complete_puzzle_path, manhattan_path, index = heapq.heappop(priority_queue)
 
         if current_puzzle == goal_state:
-            return path, cost, complete_puzzle_path + [current_puzzle]
+            return path, cost, complete_puzzle_path + [current_puzzle], manhattan_path, tree, list(map(str, labels))
 
         visited.add(tuple(map(tuple, current_puzzle)))
 
@@ -56,9 +62,16 @@ def best_first_search(start_puzzle):
             if tuple(map(tuple, neighbor)) not in visited:
                 new_empty_pos = [(i, j) for i in range(3) for j in range(3) if neighbor[i][j] == 0][0]
                 new_path = path + [new_empty_pos]
-                heapq.heappush(priority_queue, (manhattan(neighbor), cost + 1, neighbor, new_path, complete_puzzle_path + [current_puzzle]))
+                manhattan_distance = manhattan(neighbor)
+                labels.append(manhattan_distance)
+                new_index = len(tree) + 1
+                tree.append((index, new_index))  # Append the parent index and the new node index
+                heapq.heappush(priority_queue, (
+                    manhattan_distance, cost + 1, neighbor, new_path, complete_puzzle_path + [current_puzzle],
+                    manhattan_path + [manhattan_distance], new_index))
 
-    return None, -1, None
+    return None, -1, None, None, None
+
 
 def save_solution_to_file(path, cost, filename='solution.txt'):
     with open(filename, 'w', encoding='utf-8') as f:
@@ -70,6 +83,7 @@ def save_solution_to_file(path, cost, filename='solution.txt'):
             f.write(format_solution_output(state))
             f.write("\n")
         f.write(f"Total cost: {cost}\n")
+
 
 def format_solution_output(state):
     output = "╔═══╦═══╦═══╗\n"
@@ -83,6 +97,7 @@ def format_solution_output(state):
 
     return output
 
+
 def tile_swap_loop():
     global solution_path
     time.sleep(1.5)
@@ -90,6 +105,7 @@ def tile_swap_loop():
         print(step)
         swapTiles(step[0], step[1])
         time.sleep(0.5)
+
 
 def visualize_solution(initial_puzzle):
     init_puzzle(initial_puzzle)
@@ -109,9 +125,12 @@ if __name__ == "__main__":
     if invCount % 2 != 0:
         print("This puzzle is not solvable\nThe board has an odd number of inversions:", invCount)
         exit()
-    solution_path, total_cost, boards = best_first_search(initial_puzzle)
+    solution_path, total_cost, boards, manhattan_path, tree, labels = best_first_search(initial_puzzle)
+    print(manhattan_path)
     if solution_path:
         save_solution_to_file(boards, total_cost)
+        plot_tree_with_edges_and_labels(tree, labels)
         visualize_solution(initial_puzzle)
+
     else:
         print("No solution found.")
