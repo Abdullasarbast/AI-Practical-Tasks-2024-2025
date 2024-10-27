@@ -118,12 +118,21 @@ def visualize_solution(initial_puzzle):
         print(f"Board crashed with error: {e}")
 
 
-if __name__ == "__main__":
-    initial_puzzle = get_random_puzzle()
-    invCount = getInvCount(initial_puzzle)
+def get_solvable_puzzle():
+    puzzle = get_random_puzzle()
+    invCount = getInvCount(puzzle)
     if invCount % 2 != 0:
-        print("This puzzle is not solvable\nThe board has an odd number of inversions:", invCount)
-        exit()
+        print("Unsolvable puzzle with", invCount, " inversions, generating new puzzle...")
+        time.sleep(1)
+        return get_solvable_puzzle()
+    else:
+        print("Found a solvable puzzle with", invCount, " inversions.")
+        return puzzle
+
+
+if __name__ == "__main__":
+    initial_puzzle = get_solvable_puzzle()
+
     solution_path, total_cost, boards, manhattan_path, tree, labels = best_first_search(initial_puzzle)
     print(manhattan_path)
     if solution_path:
